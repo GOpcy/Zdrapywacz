@@ -3,30 +3,68 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"sync"
 
+	discordbot "github.com/GOpcy/Zdrapywacz/discordBot"
 	"github.com/gocolly/colly"
+	"github.com/lpernett/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 type Offer struct{
-	Title string
+	Title string 
 	Company string
 	Location string
 	Experience string
 	OperatingMode string
-	URL string
+	URL string `gorm:"primarykey"`
 }
 
 func main() {
+	//envs
+	err := godotenv.Load()
+  	if err != nil {
+    log.Fatal("Error loading .env file")
+  }
+	//Database
+	dsn := fmt.Sprintf("%s:%s@tcp(127.0.0.1:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+	os.Getenv("DB_USER"),
+	os.Getenv("DB_PASSWORD"),
+	os.Getenv("DB_PORT"),
+	os.Getenv("DB_NAME"),
+	)
+
+
+  	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+	panic("failed to connect database")
+	}else{
+		fmt.Println("--!Database Migrated!--")
+	}
+
+	db.AutoMigrate(&Offer{})
+
+
 	c := colly.NewCollector(
 		colly.AllowedDomains("justjoin.it", "www.justjoin.it"),
 
-		colly.CacheDir("./justjoinit_cache"),
+		//colly.CacheDir("./justjoinit_cache"),
+
+		colly.MaxDepth(2),
+		colly.Async(true),
 	)
 
 	detailCollector := c.Clone()
+	var sum int64 = 0;
+	var m sync.Mutex;
 
 	//offers := make([]Offer, 0, 200)
 
+	c.OnRequest(func(r *colly.Request) {
+		r.Ctx.Put("https://api.justjoin.it/v2/user-panel/offers?experienceLevels[]=junior&page=2&sortBy=published&orderBy=DESC&perPage=100&salaryCurrencies=PLN", r.URL.String())
+	})
 
 	c.OnHTML("div[data-test-id=virtuoso-item-list]", func(e *colly.HTMLElement) {
 		
@@ -39,15 +77,8 @@ func main() {
 		//fmt.Println(offers)
 	})
 
-	c.OnRequest(func(r *colly.Request) {
-		//log.Println("visiting", r.URL.String())
-	})
-	
-	detailCollector.OnRequest(func(r *colly.Request) {
-		//fmt.Println("visiting", r.URL.String())
-	})
-
 	detailCollector.OnHTML(`div.css-tnvghs`, func(e *colly.HTMLElement){
+		
 		title := e.ChildText("h1")
 		if title == "" {
 			log.Println("No title found", e.Request.URL)
@@ -61,19 +92,29 @@ func main() {
 		
 		e.ForEach(".css-if24yw > div", func(_ int, el *colly.HTMLElement){
 			target := el.Text
+			m.Lock()
 			switch target{
 			case "Experience": 
 				offer.Experience = el.DOM.Next().Text()
 			case "Operating mode": 
 				offer.OperatingMode = el.DOM.Next().Text()
 			}	
+			m.Unlock()
 		})
+		m.Lock()
+		sum++
 		fmt.Println(offer.URL," | ", offer.Company, " | ", offer.Location, " | ", offer.Title, " | ", offer.Experience, " | ", offer.OperatingMode);
+		result := db.FirstOrCreate(&offer)
+		if result.Error != nil{
+			panic("failed to create a record in db")
+		}
+		m.Unlock()
+		fmt.Println(sum)
 	})
-
-
-
-
-
 	c.Visit("https://justjoin.it/job-offers/all-locations?experience-level=junior&orderBy=DESC&sortBy=published&from=0")
+
+	c.Wait()
+	detailCollector.Wait()
+
+	discordbot.RunBot();
 }
