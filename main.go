@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/GOpcy/Zdrapywacz/databaseconf"
 	discordbot "github.com/GOpcy/Zdrapywacz/discordBot"
 	"github.com/gocolly/colly"
 	"github.com/lpernett/godotenv"
@@ -13,14 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Offer struct{
-	Title string 
-	Company string
-	Location string
-	Experience string
-	OperatingMode string
-	URL string `gorm:"primarykey"`
-}
+
 
 func main() {
 	//envs
@@ -35,8 +29,6 @@ func main() {
 	os.Getenv("DB_PORT"),
 	os.Getenv("DB_NAME"),
 	)
-
-
   	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 	panic("failed to connect database")
@@ -44,7 +36,9 @@ func main() {
 		fmt.Println("--!Database Migrated!--")
 	}
 
-	db.AutoMigrate(&Offer{})
+	db.AutoMigrate(&databaseconf.Offer{})
+
+	
 
 
 	c := colly.NewCollector(
@@ -83,7 +77,7 @@ func main() {
 		if title == "" {
 			log.Println("No title found", e.Request.URL)
 		}
-		offer := Offer{
+		offer := databaseconf.Offer{
 			Title: title,
 			URL: e.Request.URL.String(),
 			Company: e.ChildText("h2"),
@@ -107,6 +101,9 @@ func main() {
 		result := db.FirstOrCreate(&offer)
 		if result.Error != nil{
 			panic("failed to create a record in db")
+		}
+		if result.RowsAffected > 0{
+			discordbot.BotPing(&offer)
 		}
 		m.Unlock()
 		fmt.Println(sum)
