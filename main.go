@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/GOpcy/Zdrapywacz/databaseconf"
@@ -37,10 +39,57 @@ func main() {
 	}else{
 		fmt.Println("--!Database Migrated!--")
 	}
-
 	db.AutoMigrate(&databaseconf.Offer{})
 
 	
+	go discordbot.RunBot();
+
+	
+
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	
+	j, err := s.NewJob(
+		gocron.DurationJob(
+			10*time.Minute,
+		),
+		gocron.NewTask(
+			func() {
+				c, detailCollector := setupCollectors(db)
+				fmt.Println("running")
+				runScrape(c, detailCollector)
+			},
+		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(j.ID())
+
+	//start the scheduler
+	s.Start()
+
+	//runScrape(c, detailCollector, db);
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		log.Println("interupting")
+		_= s.Shutdown()
+		os.Exit(0)
+	}()
+
+	select{}
+
+}
+
+func setupCollectors (db *gorm.DB)(*colly.Collector, *colly.Collector){
+	//collectors
 	c := colly.NewCollector(
 		colly.AllowedDomains("justjoin.it", "www.justjoin.it"),
 
@@ -49,44 +98,11 @@ func main() {
 		colly.MaxDepth(2),
 		colly.Async(true),
 	)
-	discordbot.RunBot();
+	
 
 	detailCollector := c.Clone()
 
-	s, err := gocron.NewScheduler()
-	if err != nil {
-		log.Fatal(err)
-	}
-	
 
-	j, err := s.NewJob(
-		gocron.DurationJob(
-			time.Minute,
-		),
-		gocron.NewTask(
-			func() {
-				runScrape(c, detailCollector, db)
-			},
-		),
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(j.ID())
-
-	// start the scheduler
-	s.Start()
-
-	//runScrape(c, detailCollector, db);
-
-	select {
-	}
-	
-}
-
-func runScrape(c *colly.Collector, detailCollector *colly.Collector, db *gorm.DB){
 	var sum int64 = 0;
 	var m sync.Mutex;
 
@@ -144,8 +160,13 @@ func runScrape(c *colly.Collector, detailCollector *colly.Collector, db *gorm.DB
 		m.Unlock()
 		fmt.Println(sum)
 	})
+	return c, detailCollector
+}
+
+func runScrape(c *colly.Collector, detailCollector *colly.Collector){
 	c.Visit("https://justjoin.it/job-offers/all-locations?experience-level=junior&orderBy=DESC&sortBy=published&from=0")
 
 	c.Wait()
 	detailCollector.Wait()
+	fmt.Println("Scraping Finished")
 }
