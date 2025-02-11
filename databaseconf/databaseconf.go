@@ -6,5 +6,6 @@ type Offer struct {
 	Location      string
 	Experience    string
 	OperatingMode string
+	Tags          string
 	URL           string `gorm:"primarykey"`
 }
