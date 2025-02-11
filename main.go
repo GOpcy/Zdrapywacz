@@ -44,8 +44,6 @@ func main() {
 	
 	go discordbot.RunBot();
 
-	
-
 	s, err := gocron.NewScheduler()
 	if err != nil {
 		log.Fatal(err)
@@ -54,7 +52,7 @@ func main() {
 	
 	j, err := s.NewJob(
 		gocron.DurationJob(
-			10*time.Minute,
+			time.Minute,
 		),
 		gocron.NewTask(
 			func() {

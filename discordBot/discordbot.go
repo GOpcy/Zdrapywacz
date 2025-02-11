@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 
 	"github.com/GOpcy/Zdrapywacz/databaseconf"
 	"github.com/bwmarrin/discordgo"
@@ -43,7 +44,10 @@ func RunBot(){
 
 	fmt.Println("bot is online")
 
-
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	<-stop
+	log.Println("Graceful shutdown")
 }
 
 func BotPing(o *databaseconf.Offer){
