@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/GOpcy/Zdrapywacz/databaseconf"
 	discordbot "github.com/GOpcy/Zdrapywacz/discordBot"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/gocolly/colly"
 	"github.com/lpernett/godotenv"
 	"gorm.io/driver/mysql"
@@ -39,8 +41,6 @@ func main() {
 	db.AutoMigrate(&databaseconf.Offer{})
 
 	
-
-
 	c := colly.NewCollector(
 		colly.AllowedDomains("justjoin.it", "www.justjoin.it"),
 
@@ -49,8 +49,44 @@ func main() {
 		colly.MaxDepth(2),
 		colly.Async(true),
 	)
+	discordbot.RunBot();
 
 	detailCollector := c.Clone()
+
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+
+	j, err := s.NewJob(
+		gocron.DurationJob(
+			time.Minute,
+		),
+		gocron.NewTask(
+			func() {
+				runScrape(c, detailCollector, db)
+			},
+		),
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(j.ID())
+
+	// start the scheduler
+	s.Start()
+
+	//runScrape(c, detailCollector, db);
+
+	select {
+	}
+	
+}
+
+func runScrape(c *colly.Collector, detailCollector *colly.Collector, db *gorm.DB){
 	var sum int64 = 0;
 	var m sync.Mutex;
 
@@ -112,6 +148,4 @@ func main() {
 
 	c.Wait()
 	detailCollector.Wait()
-
-	discordbot.RunBot();
 }
