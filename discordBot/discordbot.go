@@ -99,6 +99,6 @@ func BotPing(o *databaseconf.Offer) {
 		discord.ChannelMessageSend("1337156063799279616", fmt.Sprintf("<@&%s>", roleID))
 	}
 
-	discord.ChannelMessageSend("1337156063799279616", "@everyone !!!NEW OFFER!!!:")
+	discord.ChannelMessageSend("1337156063799279616", "---------------!!!NEW OFFER!!!---------------")
 	discord.ChannelMessageSendEmbed("1337156063799279616", &e)
 }
