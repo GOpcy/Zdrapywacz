@@ -67,10 +67,15 @@ func BotPing(o *databaseconf.Offer) {
 		log.Fatal(err)
 	}
 
+	image := discordgo.MessageEmbedImage{
+		URL: o.Image,
+	}
+
 	e := discordgo.MessageEmbed{
 		URL:   o.URL,
 		Title: o.Title,
 		Color: 0xFF0000,
+		Image: &image,
 		Description: fmt.Sprintf("**%s**,\n %s, \n %s, \n %s",
 			o.Tags,
 			o.Company,

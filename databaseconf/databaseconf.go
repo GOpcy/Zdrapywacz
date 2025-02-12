@@ -5,6 +5,7 @@ type Offer struct {
 	Company       string
 	Location      string
 	Experience    string
+	Image         string
 	OperatingMode string
 	Tags          string
 	URL           string `gorm:"primarykey"`

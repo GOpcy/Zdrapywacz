@@ -131,6 +131,7 @@ func setupCollectors(db *gorm.DB) (*colly.Collector, *colly.Collector) {
 			URL:      e.Request.URL.String(),
 			Company:  e.ChildText("h2"),
 			Location: e.ChildText(".css-1o4wo1x"),
+			Image:    e.ChildAttr("#offerCardCompanyLogo", "src"),
 		}
 
 		e.ForEach(".css-if24yw > div", func(_ int, el *colly.HTMLElement) {
